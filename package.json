@@ -1,0 +1,14 @@
+{
+  "name": "pintamundo",
+  "version": "1.0.0",
+  "description": "Canvas colaborativo de pixels sobre o mapa-múndi (tipo wplace) — 100% estático no GitHub Pages + Supabase grátis",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node test/logic.test.mjs && node test/smoke.test.mjs"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "jsdom": "^31.0.0"
+  }
+}

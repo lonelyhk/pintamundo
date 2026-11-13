@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>PintaMundo — pinte o mapa do mundo</title>
+<meta name="description" content="Canvas colaborativo de pixels sobre o mapa-múndi. Pinte sem limitações, em tempo real, com todo mundo.">
+<meta name="theme-color" content="#0f1218">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%230f1218'/><rect x='18' y='18' width='30' height='30' fill='%23ff6b6b'/><rect x='52' y='18' width='30' height='30' fill='%23ffd93d'/><rect x='18' y='52' width='30' height='30' fill='%236bcB77'/><rect x='52' y='52' width='30' height='30' fill='%234d96ff'/></svg>">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="map"></div>
+
+<header class="panel brand">
+  <span class="logo-dot" aria-hidden="true"></span>
+  <div>
+    <h1>PintaMundo</h1>
+    <p>o mapa é de todo mundo · sem limites de pintura</p>
+  </div>
+</header>
+
+<div class="panel searchbar">
+  <input id="searchInput" type="search" placeholder="Buscar lugar ou coordenadas…" autocomplete="off" spellcheck="false" aria-label="Buscar lugar">
+  <button id="btnMyLocation" class="btn square loc" title="Minha localização">📍</button>
+  <div id="searchResults" class="search-results hidden"></div>
+</div>
+
+<nav class="panel actions">
+  <button id="btnRandom" class="btn" title="Ir para um lugar aleatório (R)">🎲 Aleatório</button>
+  <button id="btnExport" class="btn" title="Baixar PNG da área visível">⬇ PNG</button>
+  <button id="btnHelp" class="btn" title="Ajuda (?)">?</button>
+</nav>
+
+<nav class="panel side-tools" aria-label="Ferramentas">
+  <button id="btnFav" class="btn square" title="Favoritos (F)">⭐</button>
+  <button id="btnOverlay" class="btn square" title="Overlay de referência (O)">🖼️</button>
+  <button id="btnStudio" class="btn square" title="Pixel-art Studio (S)">🎨</button>
+  <button id="btnActivity" class="btn square" title="Atividade recente">🕐</button>
+  <button id="btnShare" class="btn square" title="Copiar link desta posição">🔗</button>
+</nav>
+
+<div id="overlayPanel" class="panel overlay-panel hidden">
+  <h3>🖼️ Overlay de referência</h3>
+  <div class="row">
+    <input type="file" id="overlayFile" accept="image/*">
+  </div>
+  <label class="field">Resolução
+    <select id="overlayRes">
+      <option value="32">32 px · bloco 8×8</option>
+      <option value="64" selected>64 px · bloco 4×4</option>
+      <option value="128">128 px · bloco 2×2</option>
+      <option value="160">160 px · bloco 2×2</option>
+      <option value="256">256 px · bloco 1×1</option>
+      <option value="400">400 px · bloco 1×1</option>
+    </select>
+  </label>
+  <label class="field">Tamanho no mapa <span id="overlaySizeVal">—</span>
+    <input type="range" id="overlaySize" min="1" max="64" step="1" value="4">
+  </label>
+  <label class="field">Opacidade <span id="overlayOpacityVal">60%</span>
+    <input type="range" id="overlayOpacity" min="5" max="100" value="60">
+  </label>
+  <div class="btn-row">
+    <button id="overlayAnchor" class="btn small">📍 ancorar aqui</button>
+    <button id="overlayMove" class="btn small" title="Mover: 1 dedo arrasta · 2 dedos (pinça) muda o tamanho">✋ mover</button>
+    <button id="overlayVisible" class="btn small">👁️ ocultar</button>
+    <button id="overlayRemove" class="btn small danger">✕ remover</button>
+  </div>
+  <div class="btn-row">
+    <button id="overlayImport" class="btn small primary" title="Pinta cada pixel da imagem no mapa (Ctrl+Z desfaz tudo)">📥 importar no mapa</button>
+  </div>
+  <label class="chk"><input type="checkbox" id="overlayProgress"> mostrar progresso (barra)</label>
+  <label class="chk"><input type="checkbox" id="overlayMarks"> marcar pixels faltantes</label>
+  <div id="overlayStats" class="stats">—</div>
+  <p class="fine">Cada clique pinta <b>um quadrado inteiro</b> da imagem (bloco). Se a imagem já for <b>feita de pixels</b> (arte pixel), o tamanho do quadrado é <b>detectado sozinho</b> — cada clique pinta exatamente 1 pixel dela. O botão <b>📥 importar no mapa</b> pinta a imagem inteira de uma vez (Ctrl+Z desfaz). Também dá para <b>arrastar e soltar</b> a imagem aqui. No modo <b>✋ mover</b>: 1 dedo arrasta e <b>2 dedos (pinça) aumenta/reduz</b> a imagem do jeito que você quiser — ou use o controle "Tamanho no mapa". <kbd>Alt</kbd>+clique na imagem pega a cor dela (qualquer cor do mundo). Oculte a overlay para pintar célula a célula.</p>
+</div>
+
+<div class="panel toolbar">
+  <div class="modes" role="group" aria-label="Modo">
+    <button id="modeMove" class="mode active" title="Mover o mapa (M)">✋ Mover</button>
+    <button id="modePaint" class="mode" title="Pintar (B)">🖌 Pincel</button>
+    <button id="btnEraser" class="mode eraser" title="Borracha (E)">🧽</button>
+  </div>
+  <div class="divider" aria-hidden="true"></div>
+  <div class="tools" role="group" aria-label="Edição">
+    <button id="btnUndo" class="btn square tiny" title="Desfazer (Ctrl+Z)" disabled>↩</button>
+    <button id="btnRedo" class="btn square tiny" title="Refazer (Ctrl+Shift+Z)" disabled>↪</button>
+    <button id="btnPick" class="btn square tiny" title="Conta-gotas: cor do mapa ou da imagem com overlay (Alt+clique)">💉</button>
+    <button id="btnGrid" class="btn square tiny active" title="Grade de pixels (G)">▦</button>
+  </div>
+  <div class="divider" aria-hidden="true"></div>
+  <div id="palette" class="palette" aria-label="Paleta de cores"></div>
+  <input type="color" id="colorPick" class="color-pick" value="#ffffff"
+    title="Todas as cores do mundo: escolha qualquer cor" aria-label="Escolher qualquer cor">
+  <div class="divider" aria-hidden="true"></div>
+  <div class="zooms">
+    <button id="btnZoomIn" class="btn square" title="Zoom +">+</button>
+    <button id="btnZoomOut" class="btn square" title="Zoom −">−</button>
+  </div>
+</div>
+
+<div class="panel info">
+  <span id="coords">—</span>
+  <span class="sep">·</span>
+  <span id="zoomLabel">z0</span>
+  <span class="sep">·</span>
+  <span id="tileCount" class="tile-count"></span>
+  <span id="status" class="status">pronto</span>
+</div>
+
+<div id="hint" class="hint hidden">🔍 Aproxime mais (zoom ≥ 12) para ver os pixels · zoom ≥ 14 para pintar</div>
+
+<div id="toasts" class="toasts" aria-live="polite"></div>
+
+<!-- ===================== Modal: Ajuda ===================== -->
+<div id="helpModal" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modal-card">
+    <button class="modal-close" data-close>×</button>
+    <h2>Como jogar</h2>
+    <ol class="help-list">
+      <li><b>Explore:</b> ao abrir, o mapa já encaixa <b>de cima</b> onde tem desenho (e a overlay salva, entre os zooms 12–13 — um link <kbd>#lat,lng,z</kbd> sempre abre exatamente onde foi pedido). Depois arraste e use a roda/pinça para dar zoom — ou <b>busque um lugar</b> no topo.</li>
+      <li><b>Modo pincel:</b> escolha uma cor — as 63 rápidas ou <b>qualquer cor do mundo</b> no seletor 🎨 — e clique ou arraste sobre o mapa para pintar. Pinça ou zoom durante a pintura cancela o traço — <b>zoom nunca pinta</b>.</li>
+      <li><b>Sem limites:</b> não há cargas, nem espera, nem moeda — pinte quanto quiser.</li>
+      <li><b>Tempo real:</b> o que você pinta aparece para todo mundo que estiver olhando a mesma região.</li>
+      <li><b>Ferramentas:</b> ⭐ favoritos, 🖼️ overlay de referência (1 clique = 1 quadrado da imagem; <b>arte pixel é detectada sozinho</b> — 1 clique = 1 pixel dela; <b>📥 importar no mapa</b> pinta a imagem inteira de uma vez; no modo ✋ mover, <b>a pinça muda o tamanho</b> e <kbd>Alt</kbd>+clique pega a cor dela), 🎨 Pixel-art Studio (todas as cores preservadas), 🕐 atividade recente e 🔗 link da posição.</li>
+      <li><b>Espaço:</b> o mundo inteiro é seu — 4 trilhões de pixels. Combine projetos com a galera.</li>
+    </ol>
+    <h2>Atalhos</h2>
+    <div class="keys">
+      <span><kbd>B</kbd> pincel</span><span><kbd>M</kbd> mover</span><span><kbd>E</kbd> borracha</span>
+      <span><kbd>R</kbd> aleatório</span><span><kbd>G</kbd> grade</span>
+      <span><kbd>O</kbd> overlay</span><span><kbd>S</kbd> studio</span><span><kbd>F</kbd> favoritos</span>
+      <span><kbd>Ctrl</kbd>+<kbd>Z</kbd> desfazer</span><span><kbd>Alt</kbd>+clique conta-gotas</span>
+      <span><kbd>+</kbd>/<kbd>−</kbd> zoom</span><span><kbd>?</kbd> ajuda</span>
+      <span><kbd>1</kbd>–<kbd>9</kbd> cores rápidas · seletor 🎨 com todas as cores</span>
+    </div>
+    <p class="fine">Mapa © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contribuidores.</p>
+  </div>
+</div>
+
+<!-- ===================== Modal: Pixel-art Studio ===================== -->
+<div id="studioModal" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modal-card wide">
+    <button class="modal-close" data-close>×</button>
+    <h2>🎨 Pixel-art Studio</h2>
+    <p>Transforme qualquer imagem em pixel art — <b>todas as cores da imagem são preservadas</b> (o mapa pinta em cor cheia).</p>
+    <div class="btn-row">
+      <input type="file" id="studioFile" accept="image/*">
+      <label class="field inline">Largura
+        <select id="studioWidth">
+          <option value="32">32 px</option>
+          <option value="64" selected>64 px</option>
+          <option value="128">128 px</option>
+          <option value="256">256 px</option>
+        </select>
+      </label>
+    </div>
+    <div class="studio-preview-wrap">
+      <canvas id="studioPreview" class="studio-preview"></canvas>
+      <p id="studioEmpty" class="fine">Escolha uma imagem para ver a prévia.</p>
+    </div>
+    <div class="modal-actions">
+      <button id="studioToOverlay" class="btn primary" disabled>🖼️ Usar como overlay</button>
+      <button id="studioDownload" class="btn" disabled>⬇ Baixar PNG</button>
+      <button class="btn" data-close>Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== Modal: Favoritos ===================== -->
+<div id="favModal" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modal-card">
+    <button class="modal-close" data-close>×</button>
+    <h2>⭐ Favoritos</h2>
+    <p>Salve lugares para voltar depois — e gere um link para compartilhar.</p>
+    <div class="btn-row">
+      <input type="text" id="favName" placeholder="Nome do lugar (ex.: minha casa)">
+      <button id="favSave" class="btn primary">Salvar posição atual</button>
+    </div>
+    <ul id="favList" class="item-list"><li class="fine">Nenhum favorito ainda.</li></ul>
+  </div>
+</div>
+
+<!-- ===================== Modal: Atividade recente ===================== -->
+<div id="activityModal" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modal-card">
+    <button class="modal-close" data-close>×</button>
+    <h2>🕐 Atividade recente</h2>
+    <p>Últimos lugares do mundo que alguém acabou de pintar.</p>
+    <ul id="activityList" class="item-list"><li class="fine">Carregando…</li></ul>
+    <div class="modal-actions">
+      <button id="activityRefresh" class="btn">↻ Atualizar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== Modal: Setup ===================== -->
+<div id="setupModal" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modal-card wide">
+    <h2>⚙️ Configuração obrigatória (5 minutos)</h2>
+    <p>Este site é 100% estático (GitHub Pages) e usa o <b>Supabase grátis</b> como banco do canvas compartilhado. Faça uma vez:</p>
+    <ol class="help-list">
+      <li>Crie uma conta grátis em <b><a href="https://supabase.com" target="_blank" rel="noopener">supabase.com</a></b> e crie um projeto novo.</li>
+      <li>No <b>SQL Editor</b> do Supabase, cole e execute o script abaixo:</li>
+    </ol>
+    <div class="codebox">
+      <button id="btnCopySql" class="btn small">📋 Copiar SQL</button>
+      <pre id="sqlPreview"></pre>
+    </div>
+    <ol class="help-list" start="3">
+      <li>Em <b>Project Settings → API</b>, copie a <b>Project URL</b> e a <b>anon public key</b> e cole no arquivo <code>config.js</code> deste site.</li>
+      <li>Suba tudo no GitHub e ative <b>Pages</b> (Settings → Pages → Deploy from branch <code>main</code> / <code>root</code>).</li>
+      <li>Recarregue a página. Pronto: todo mundo que abrir o link pinta no mesmo mapa.</li>
+    </ol>
+    <div class="modal-actions">
+      <button id="btnReload" class="btn primary">Já configurei — recarregar</button>
+      <button class="btn" data-close>Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Script SQL para copiar -->
+<script type="text/plain" id="sql-setup">
+create table if not exists public.tiles (
+  tx        int  not null,
+  ty        int  not null,
+  d         text not null default '',
+  v         int  not null default 1,
+  updated_at timestamptz not null default now(),
+  primary key (tx, ty)
+);
+
+create index if not exists tiles_updated_at_idx
+  on public.tiles (updated_at desc);
+
+alter table public.tiles enable row level security;
+
+drop policy if exists "leitura publica" on public.tiles;
+create policy "leitura publica" on public.tiles
+  for select to anon using (true);
+
+drop policy if exists "escrita publica" on public.tiles;
+create policy "escrita publica" on public.tiles
+  for insert to anon with check (true);
+
+drop policy if exists "atualizacao publica" on public.tiles;
+create policy "atualizacao publica" on public.tiles
+  for update to anon using (true) with check (true);
+</script>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="logic.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

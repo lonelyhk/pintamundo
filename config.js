@@ -1,0 +1,4 @@
+window.PINTAMUNDO_CONFIG = {
+  supabaseUrl: "https://jhsbfqjevdtmyhvjdeyb.supabase.co",
+  supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impoc2JmcWpldmR0bXlodmpkZXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ0MzE4OTgsImV4cCI6MjExMDAwNzg5OH0.3qWtOYfdtvv_OcflcmNH5KNLiPQFmY1FXzlaPtkhf70"
+};
